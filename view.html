@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es-MX">
+<head>
+	<title>Parser/Buscador en JSON</title>
+	<meta charset="utf-8">
+	
+	<script type="text/javascript" src="jquery.js"></script>
+	<!-- Esta función corrige el offset del top-menu fixed en 30px para todos los anchor internos!! -->
+	<script type="text/javascript" src="anchoroffsetcorrection.js"></script>
+	<!-- Esta script contiene los datos json  con comilla simple escapada: ' => \' -->
+	<script type="text/javascript" src="jsondata.js"></script>
+	<style type="text/css">
+		.nodo {
+			cursor: pointer;
+		}
+		#busdiv {
+			height: 30px;
+			line-height: 30px;
+			width: 100%;
+			position: fixed;
+			top: 0px;
+			left: 0px;
+			padding:0px;
+			padding-left: 10px;
+			padding-right: 20px;
+			font-size: 1em;
+			background-color: #CC0;
+			z-index: 99;
+		}
+		#buscar {
+			padding-left: 8px;
+			padding-right: 8px;
+			width: 250px;
+		}
+		#data {
+			margin-top: 40px;
+		}
+		#result {
+			margin: 0;
+			position: fixed;
+			top: 30px;
+			right: 0px;
+			padding-top: 10px;
+			padding-bottom: 20px;
+			padding-right:20px;
+			padding-left:40px;
+			font-size: 1em;
+			min-width: 160px;
+			z-index: 999;
+			height: auto;
+			background-color: #eee;
+			width: auto;
+			max-width: 50vw;
+			max-height: 80vh;
+			overflow: auto;
+			border: none;
+			border-right: 8px solid #000;
+			display: none;
+		}
+		#resclick {
+			position: fixed;
+			top: 0px;
+			right: 0px;
+			padding:0px;
+			line-height: 30px;
+			height: 30px;
+			width: 160px;
+			padding-right: 12px;
+			text-align: right;
+			font-weight: bold;
+			background-color: #000;
+			color: #eee;
+			font-size: 1.2em;
+			cursor: pointer;
+			z-index: 999;
+			display: none;
+		}
+		.backtotop {
+			cursor:pointer;
+			font-weight: bold;
+			line-height: 24px;
+			margin-right: 12px;
+			color: #888;
+			text-decoration: none;
+			border-top: 1px solid #CC0;
+		}
+		.backtotop:hover {
+			border-color: #000;
+			color: #000;
+		}
+		input,label {
+			font-weight: bold;
+		}
+		a {
+			text-decoration: none;
+		}
+		a:hover {
+			text-decoration: underline;
+		}
+		.highlight {
+			background-color: #FF0;
+		}
+	</style>
+</head>
+<body>
+	<div id="busdiv">
+		<a class="backtotop" href="#">&nbsp;▲&nbsp;</a>
+		<input type="button" onclick="buscar();" value="Buscar (regex)">
+		<!-- EJEMPLO: "(?<=(el|la|las|los|lo) [\wáéíóúüñÁÉÍÓÚÜÑ]+ están? ).*" -->
+		<input type="text" placeholder="Ingresa un patrón Regex" id="buscar">
+		<input type="radio" name="donde" value="k" id="dondek" checked> <label for="dondek">Keys</label>
+  		<input type="radio" name="donde" value="v" id="dondev"> <label for="dondev">Vals</label>
+  		<input type="checkbox" name="ignorecase" value="1" id="ignorecase" checked="checked" onchange="ignorecase=$(this).prop('checked');"> <label for="ignorecase">IgnoreCase</label>
+		<div id="resclick" onclick="$('#result').toggle();"></div>
+		<ol id="result"></ol>
+	</div>
+	<p id="data"></p>
+
+<script>
+var names = [];
+var objetos = {};
+var objetosview = [];
+var eventox = {};
+var intervalo = null;
+var ignorecase = $("#ignorecase").prop('checked');
+$(function() {
+	$("#buscar").on('keyup', function (e) {
+	    if (e.keyCode == 13) {
+	        buscar();
+	    }
+	});
+});
+
+function buscar() {
+	var b = $('#buscar').val(); // Que buscar (regex)
+	var d = $('input[name=donde]:checked').val(); // Claves (k) o Valores (v)
+	var res = findInObject([],b,obj,d); // Resultados
+	var result = [];
+	var slength = 70; // Máximo de caracteres en link
+	if (objetosview.indexOf('0')>=0) {
+		abrirNodo(0);
+	}
+	for (var j = 0; j < res.length; j++) {
+		var x = [];
+		var ll = '';
+		for (var i = 0; i < res[j][2].length; i++) {
+			x.push(res[j][2][i]);
+			if (i==0) ll = res[j][2][i];
+			else ll = ll+"-"+res[j][2][i];
+			if (objetosview.indexOf(ll)<0) {
+				abrirNodo(ll);
+				objetosview.push(ll);
+			}
+		}
+		x = x.join("-");
+		if (d=='k') result.push('<a href="#l'+x+'"><b>'+(res[j][0].length > slength ? res[j][0].substring(0, slength - 3) + "..." : res[j][0])+'</b></a>');
+		else result.push('<a href="#l'+x+'"><b>'+(res[j][1].length > slength ? res[j][1].substring(0, slength - 3) + "..." : res[j][1])+'</b></a>');
+	}
+	result = '<li>'+result.join("</li><li>")+'</li>';
+	$('#resclick').html('Resultados: '+res.length);
+	$('#resclick').show();
+	$('#result').html(result);
+	$('b').each(function(){
+		var search_value = $('#buscar').val();
+		if (ignorecase) {
+			var search_regexp = new RegExp(search_value, "giu");
+		} else {
+			var search_regexp = new RegExp(search_value, "gu");
+		}
+		$(this).html($(this).html().replace(search_regexp,"<span class='highlight'>$&</span>"));
+	});
+}
+
+function findInObject(mem,what,theObject,stype,ruta="") {
+	if (ignorecase) {
+		// console.log("IGNORE");
+		var re = new RegExp(what, 'giu');
+    } else {
+    	var re = new RegExp(what, 'gu'); 
+    }
+    if(theObject instanceof Array) {
+        for(var i = 0; i < theObject.length; i++) {
+            mem = findInObject(mem,what,theObject[i],stype,ruta+"|"+i);
+        }
+    }
+    else {
+    	i = -1;
+        for(var prop in theObject) {
+        	i++;
+            // console.log(prop + ': ' + theObject[prop]);
+            if( (stype=="k" && prop.match(re)) ||  (stype!="k" && (typeof theObject[prop] === 'string' || theObject[prop] instanceof String) && theObject[prop].match(re)) ) {
+	            mem.push([prop, theObject[prop], ruta.replace(/^\|+|\|+$/g, '').split("|")]);
+            }
+            if(theObject[prop] instanceof Object || theObject[prop] instanceof Array) {
+                mem = findInObject(mem,what,theObject[prop],stype,ruta+"|"+i);
+            } 
+        }
+    }/* else {
+	    if(stype!="k") {
+	    	console.log("V: "+theObject);
+	    	if (theObject.match(re)) {
+	    	// if (theObject[prop] == what) {
+	    		mem.push(["", theObject, ruta.replace(/^\|+|\|+$/g, '').split("|")]);
+	    	}
+	    }
+    }*/
+    return mem;
+}
+
+function actuar(x) {
+	if (x in eventox && eventox[x].length>0) {
+		while (eventox[x].length>0){
+			var s = eventox[x].shift();
+			abrirNodo(s,1);
+			if (!(x in eventox)) {
+				// console.log("ERROR:",["Se eliminó lista en un subproceso"])
+				break;
+			}
+		}
+	}
+}
+function abrirNodo(ruta,f=0) {
+	// console.log("VER:",ruta);
+	var ti = $("#l"+ruta).parent();
+	var ruta2 = [];
+	if (objetosview.includes("l"+ruta)) {
+		ti.html(ti.children().first());
+		for(var i = objetosview.length - 1; i >= 0; i--) {
+			if(objetosview[i]!="" && (objetosview[i] == "l"+ruta || !$('#'+objetosview[i]).length)) {
+				objetosview.splice(i, 1);
+			}
+		}
+		eventox["l"+ruta] = [];
+	} else {
+		var o = objetos["l"+ruta];
+		if (!(o instanceof Object) && !(o instanceof Array) ) return; 
+		objetosview.push("l"+ruta);
+		ruta2 = (""+ruta).split("-");
+		ti.html(ti.html()+"<ul>"+parsob(ruta2,o,"")+"</ul>");
+
+		//OPEN FULL NODES
+		if (f>0) {
+			if (!("l"+ruta in eventox)) {
+				eventox["l"+ruta] = [];
+			}
+			ch = ti.children().eq(1).children();
+			for (var i = 0; i < ch.length; i++) {
+				x = ch.eq(i).children().eq(0).attr('id');
+				if (x!="l"+ruta && x!=undefined && x!=null) {
+					eventox["l"+ruta].push(x.substring(1));
+				}
+			}
+			actuar("l"+ruta);
+		}
+	}
+}
+
+function parsob(ruta,o,j="") {
+	var claves = Object.keys(o);
+	var lista = [];
+	var lista2 = [];
+	var c1 = "";
+	var c2 = "";
+	var cc = "";
+	var valor = "";
+	var clav = "";
+
+	var ruta2 = ruta;
+	ruta2.push(-1);
+
+	for (var i = 0; i < claves.length; i++) {
+		ruta2[ruta2.length-1]++;
+		if (o[claves[i]] instanceof Object) {
+			objetos["l"+ruta2.join("-")] = o[claves[i]];
+			clav = claves[i];
+			if (clav==="") {
+				clav = "[VACIO]";
+			}
+			if (ruta2.length<1) lista.push("<li id=\""+clav+"\">"+clav+"<b id=\"l"+ruta2.join("-")+"\" class=\"nodo\" oncontextmenu=\"abrirNodo('"+ruta2.join("-")+"',1);return false;\" onclick=\"abrirNodo('"+ruta2.join("-")+"');\" style=\"color:Green;\">"+clav+"</b></li>");
+			else lista.push("<li><b id=\"l"+ruta2.join("-")+"\" class=\"nodo\" oncontextmenu=\"abrirNodo('"+ruta2.join("-")+"',1);return false;\" onclick=\"abrirNodo('"+ruta2.join("-")+"');\" style=\"color:Green;\">"+clav+"</b></li>");
+		} else {
+			valor = o[claves[i]];
+			clav = claves[i];
+			if (valor==="") {
+				valor = "[VACIO]";
+			}
+			if (clav==="") {
+				clav = "[VACIO]";
+			}
+			if (!isNaN(o[claves[i]])) c2 = "Brown";
+			else c2 = "DarkMagenta";
+			if (!isNaN(claves[i])) c1 = "MediumBlue";
+			else c1 = "Black";
+
+			if (claves[i]=='sublabels') {
+				valor=valor.split(",");
+				for (var e = 0; e < valor.length; e++) {
+					v = valor[e].trim();
+					valor[e] = '<a href="#'+v+'">'+v+'</a>';
+				}
+				valor=valor.join(", ");
+			}
+			lista.push("<div><b style=\"color:"+c1+";\">"+clav+"</b>: <b style=\"color:"+c2+";\">"+valor+"</b></div>");
+		}
+		ruta = ruta2
+	}
+	return lista.join(j);
+}
+var obj = JSON.parse(  '{"JSON":'+jsondata.replace(/\n/g, "\\n").replace(/\t/g, "\\t")+'}'   );
+
+$("#data").html("<ul>"+parsob([],obj,"")+"</ul>");
+
+</script>
+
+</body>
+</html>
