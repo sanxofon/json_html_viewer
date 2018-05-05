@@ -17,7 +17,7 @@ I provide a simple python script that does just that for you:
 
 This creates a [jsondata.js](jsondata.js) file that holds your JSON "securely" for you to [view](view.html) it.
 
-To view the json file simply dobleclick on **view.html**.
+To view the json file simply doubleclick on **view.html** or open it on you favorite browser.
 
 ![Screenshot](screenshot.png)
 
