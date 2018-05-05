@@ -15,7 +15,9 @@ I provide a simple python script that does just that for you:
 
     python json2jsondata.py -f input.json
 
-This creates a jsondata.js file that holds your JSON "securely" for you to [view](view.html) it.
+This creates a [jsondata.js](jsondata.js) file that holds your JSON "securely" for you to [view](view.html) it.
+
+To view the json file simply dobleclick on **view.html**.
 
 ![Screenshot](screenshot.png)
 
