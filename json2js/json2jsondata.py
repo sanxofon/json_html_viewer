@@ -4,14 +4,18 @@ import json
 import codecs,locale,sys
 sys.stdout = codecs.getwriter(locale.getpreferredencoding())(sys.stdout)
 import re, collections
-
+import argparse
+parser = argparse.ArgumentParser(description=u'Convierte un JSON a JS')
+parser.add_argument("-f", "--file", required=True, help=u"Define el archivo de entrada JSON")
 """
 #	USO:
-python json2jsondata.py
+python json2jsondata.py -f json_sample.json
 
 """
 # Archivo JSON a convertir
-archivo = "json_sample.json"
+args = parser.parse_args()
+if args.file:
+    archivo = args.file
 
 # Abrir como json
 with open(archivo) as jsonfile:
